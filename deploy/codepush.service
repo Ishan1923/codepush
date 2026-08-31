@@ -1,0 +1,25 @@
+[Unit]
+Description=CodePush Django development server (bind to localhost)
+After=network.target
+
+[Service]
+Type=simple
+User=REPLACE_WITH_YOUR_USER
+Group=www-data
+WorkingDirectory=/path/to/codepush/codepush
+Environment=PYTHONUNBUFFERED=1
+# Replace with the full path to your virtualenv python
+ExecStart=/path/to/venv/bin/python manage.py runserver 127.0.0.1:8000
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+
+### Usage:
+### 1) Copy this file to /etc/systemd/system/codepush.service (as root)
+### 2) Edit WorkingDirectory and ExecStart to match your environment
+### 3) Reload systemd: sudo systemctl daemon-reload
+### 4) Enable and start: sudo systemctl enable --now codepush
+
+### Security note: the server is bound to 127.0.0.1 to avoid public exposure.
+### For production, use a WSGI server (gunicorn/uvicorn) behind a reverse proxy.
