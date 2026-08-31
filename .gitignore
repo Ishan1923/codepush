@@ -1,0 +1,23 @@
+# Python / Django
+__pycache__/
+*.py[cod]
+*$py.class
+*.sqlite3
+db.sqlite3
+
+# Virtual Environments
+.venv
+.env
+
+# Media / Uploads
+media/
+
+# C++ Compiled Executables 
+*.exe
+*.out
+main
+
+# IDEs and OS files
+.vscode/
+.idea/
+.DS_Store
