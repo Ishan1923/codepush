@@ -72,11 +72,38 @@ def push_to_github(request):
         commit_message = f"Solved {contest}{problem} (Rating: {rating})"
 
         try:
-            # Run git commands sequentially in the repo directory
-            subprocess.run(['git', 'add', '.'], cwd=REPO_PATH, check=True)
-            subprocess.run(['git', 'commit', '-m', commit_message], cwd=REPO_PATH, check=True)
-            subprocess.run(['git', 'push'], cwd=REPO_PATH, check=True)
-            
-            return JsonResponse({'status': 'success', 'message': 'Successfully pushed to GitHub!'})
-        except subprocess.CalledProcessError as e:
-            return JsonResponse({'status': 'error', 'message': str(e)})
+            # Ensure repo path exists
+            if not REPO_PATH or not os.path.isdir(REPO_PATH):
+                return JsonResponse({'status': 'error', 'message': f'REPO_PATH does not exist: {REPO_PATH}'})
+
+            # 1) git add
+            add = subprocess.run(['git', 'add', '.'], cwd=REPO_PATH, capture_output=True, text=True)
+
+            # 2) git commit
+            commit = subprocess.run(['git', 'commit', '-m', commit_message], cwd=REPO_PATH, capture_output=True, text=True)
+            if commit.returncode != 0:
+                # Common case: nothing to commit
+                return JsonResponse({
+                    'status': 'error',
+                    'phase': 'commit',
+                    'message': commit.stderr.strip() or commit.stdout.strip()
+                })
+
+            # 3) push (use explicit HEAD so branch-less repos work)
+            push = subprocess.run(['git', 'push', '-u', 'origin', 'HEAD'], cwd=REPO_PATH, capture_output=True, text=True)
+            if push.returncode != 0:
+                return JsonResponse({
+                    'status': 'error',
+                    'phase': 'push',
+                    'stdout': push.stdout,
+                    'stderr': push.stderr
+                })
+
+            return JsonResponse({
+                'status': 'success',
+                'message': 'Successfully pushed to GitHub!',
+                'stdout': push.stdout,
+                'stderr': push.stderr
+            })
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': f'Unexpected error: {str(e)}'})
