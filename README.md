@@ -1,40 +1,47 @@
-**CodePush — Local Codeforces Judge (codepush)**
+# CodePush — A Local Coding Practice Tool
 
-This README documents the `codepush` project's *codepush* component (the Django app and the `code_editor` app). It explains how the web-based editor works, how code is compiled and run locally, and how solutions are pushed to your GitHub repository. The goal is to make the project easy to set up and to explain the data flow in simple terms.
+CodePush is a simple website that runs on your own computer. It lets you write code, test it, and save it to GitHub — all from one page in your browser.
 
-**Repository Layout (relevant)**
-- `codepush/` — Django project root (contains settings and wsgi)
-- `codepush/code_editor/` — app with editor UI and views
-  - `views.py` — main server-side logic for compile/run/push
-  - `templates/editor/index.html` — front-end editor UI
-- `.env` — local configuration (REPO_PATH, DEBUG_MODE)
 
-**Quick Setup**
-Prerequisites:
-- Python 3.8+ and pip
+---
+
+## What's in the Project
+
+- `codepush/` — the main project folder
+- `codepush/code_editor/` — the part of the app that runs the editor
+  - `views.py` — the code that does the real work (saving files, compiling, running, pushing to GitHub)
+  - `templates/editor/index.html` — the webpage you actually see and type in
+- `.env` — a small settings file (where you tell the app which folder to save your code in)
+
+---
+
+## Setting It Up
+
+You'll need:
+- Python 3.8 or newer, plus pip
 - Git
-- g++ (for compiling C++ locally)
+- g++ (used to compile C++ code)
 
-Steps:
+**Steps:**
 
-1. Create and activate a virtualenv (recommended):
+1. Create a separate Python environment and install what's needed:
 
 ```bash
 python -m venv .venv
-source .venv/Scripts/activate    # Windows: .venv\Scripts\activate
-pip install -r requirements.txt  # create this file if missing: django, python-dotenv
+source .venv/Scripts/activate    # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt  # If this file doesn't exist yet, create it with: django, python-dotenv
 ```
 
-2. Create a `.env` file at `codepush/codepush/.env` (example):
+2. Create a settings file at `codepush/codepush/.env` and tell it where to save your code:
 
 ```env
 REPO_PATH="D:/path/to/your/local/code/repo"
 DEBUG_MODE=TRUE
 ```
 
-Important: quote `REPO_PATH` if the path contains `#` or spaces — `python-dotenv` treats `#` as comment otherwise.
+**Tip:** If your folder path has a `#` symbol or spaces in it, wrap it in quotes like above. Otherwise the settings tool might ignore part of the path.
 
-3. Run Django server:
+3. Start the website:
 
 ```bash
 cd codepush
@@ -42,149 +49,150 @@ python manage.py migrate
 python manage.py runserver
 ```
 
-Open http://127.0.0.1:8000/ to use the editor.
+Then open **http://127.0.0.1:8000/** in your browser.
 
-**How the editor works (high level)**
+---
 
-- The front-end uses a CodeMirror editor embedded in `templates/editor/index.html`.
-- When you click "Run Code", the browser sends a POST request to `/execute/` with JSON containing `code`, `rating`, `contest`, `problem`, and `input`.
-- When you click "Push to GitHub", the browser sends a POST request to `/push/` with `rating`, `contest`, and `problem` metadata.
+## How It Works (The Basics)
 
-**Key server-side flow (requests → Django views → git/compile)**
+The page has a code editor box where you type your solution. There are two buttons:
 
-Sequence for running code:
+- **Run Code** — sends your code to the server to compile and run it
+- **Push to GitHub** — saves your code and uploads it to your GitHub repository
 
-1. Browser POST `/execute/` → `code_editor.views.execute_code`
-2. Server writes code to disk: `REPO_PATH/<rating>/<contest>/<problem>/main.cpp`
-3. Server runs `g++ main.cpp -o main` to compile
-4. If compilation succeeds, server runs the binary with provided input (capturing stdout/stderr) and returns the output JSON to client
+### What happens when you click "Run Code"
 
-Sequence for pushing code to GitHub (via `push_to_github`):
+1. Your browser sends your code (plus some details like the problem name) to the server.
+2. The server saves your code as a file, inside a folder named after the problem.
+3. The server compiles it using g++.
+4. If it compiles fine, the server runs it with your test input and sends back the output.
 
-1. Browser POST `/push/` → `code_editor.views.push_to_github`
-2. Server validates `REPO_PATH` exists
-3. Server runs `git add .`, `git commit -m '...'`, and `git push -u origin HEAD`, capturing stdout/stderr
-4. Server returns JSON describing success or detailed git error output
+### What happens when you click "Push to GitHub"
 
-**Important file: `code_editor/views.py` — main parts explained**
+1. Your browser tells the server which problem you're pushing.
+2. The server checks that your save-folder actually exists.
+3. The server runs three Git commands: add the files, commit them with a message, and push them to GitHub.
+4. It sends back a message saying whether it worked — and if not, what went wrong.
 
-Below are the key parts of the `views.py` logic (simplified):
+---
 
-```python
-load_dotenv()
-REPO_PATH = os.getenv("REPO_PATH")
+## The Server Code (`views.py`) — In Plain Terms
 
-@csrf_exempt
-def execute_code(request):
-    # 1) parse JSON, save code to file under REPO_PATH
-    # 2) compile using g++: subprocess.run(['g++', file_path, '-o', executable])
-    # 3) run executable with subprocess.run([...], input=test_input, timeout=3)
-    # 4) capture stdout/stderr and return JSON
+There are two main functions:
 
-@csrf_exempt
-def push_to_github(request):
-    # Parse metadata and build a commit message
-    # Validate REPO_PATH exists
-    # Run: git add ., git commit -m ..., git push -u origin HEAD
-    # Capture stdout and stderr for each step and return useful JSON
-```
+**`execute_code`** — handles the "Run Code" button:
+- Saves your code to a file
+- Compiles it with g++
+- Runs it with a 3-second time limit (so it can't run forever)
+- Sends back whatever the program printed, or any error
 
-Why we capture stdout/stderr:
-- If a `git commit` returns non-zero, the view returns the `commit.stderr` (commonly "nothing to commit").
-- If `git push` fails (auth, refspec, etc.), the view returns push stderr to help debug.
+**`push_to_github`** — handles the "Push to GitHub" button:
+- Builds a commit message
+- Checks your save-folder exists
+- Runs `git add`, `git commit`, and `git push`
+- Sends back the result of each step, so you can see exactly where something failed (like "nothing to commit" or a login problem)
 
-**Front-end: `templates/editor/index.html` (main pieces)**
+---
 
-- The page includes a CodeMirror instance attached to a `textarea`.
-- `runCode()` packages `editor.getValue()` plus metadata and test input into JSON and POSTs to `/execute/`.
-- The returned JSON's `output` or `error` is shown in the output textarea.
-- `pushCode()` POSTs metadata to `/push/`, and shows the returned message.
+## The Webpage (`index.html`) — In Plain Terms
 
-Example front-end flow (simplified JS):
+- The typing box on the page is powered by a code editor tool called CodeMirror.
+- When you click **Run Code**, it bundles up your code and sends it to the server, then shows the result in a box below.
+- When you click **Push to GitHub**, it sends your problem info to the server and shows you a pop-up with the result.
+
+Simplified version of that logic:
 
 ```js
 async function runCode() {
   const data = { code: editor.getValue(), rating, contest, problem, input }
-  const resp = await fetch('/execute/', { method:'POST', body: JSON.stringify(data) })
+  const resp = await fetch('/execute/', { method: 'POST', body: JSON.stringify(data) })
   const result = await resp.json()
   outputArea.value = result.output || result.error
 }
 
 async function pushCode() {
-  const resp = await fetch('/push/', { method:'POST', body: JSON.stringify(metadata) })
+  const resp = await fetch('/push/', { method: 'POST', body: JSON.stringify(metadata) })
   const result = await resp.json()
   alert(result.message || result.stderr || result)
 }
 ```
 
-**Security and safety notes**
-- Running arbitrary code on the server is dangerous. This project runs compilation and execution locally on your machine — do not expose it to public networks.
-- Use a short `timeout` (e.g. 3s) for subprocess execution to prevent infinite loops.
-- Avoid committing compiled binaries to git. Add `*.exe`, `main`, etc. to `.gitignore` (this repo already includes those entries).
+---
 
-**Troubleshooting**
+## Safety Notes
 
-- If pushes fail with `src refspec refs/heads/main does not match any`:
-  - This means there was no commit on the branch yet. Create a commit locally with `git add . && git commit -m "msg"` and push with `git push -u origin main`.
-- If `.env` contains `#` in the path and `REPO_PATH` appears empty in Django, quote the path in `.env`:
+- This tool runs code you type directly on your computer — that's risky if other people can reach it. **Keep it running only on your own machine, not on the public internet.**
+- Code execution has a 3-second limit, so an infinite loop won't freeze things forever.
+- Don't accidentally save compiled program files (like `.exe` or `main`) to GitHub — this project already ignores those by default.
 
+---
+
+## Common Problems
+
+**"src refspec refs/heads/main does not match any"**
+This means you haven't made a single commit yet. Fix it by running:
+```bash
+git add .
+git commit -m "your message"
+git push -u origin main
+```
+
+**Your folder path looks empty/broken in the app**
+Make sure it's wrapped in quotes in your `.env` file, especially if it has a `#` in it:
 ```env
 REPO_PATH="D:/##RECOVERY/Downloads/dsa codes/codes/codeforces_questions_cp31"
 ```
 
-- If `git push` fails due to authentication, configure either SSH keys or use a Personal Access Token for HTTPS pushes.
+**Push fails because of login**
+Set up an SSH key, or use a Personal Access Token if you're pushing over HTTPS.
 
-**Diagrams / Flow (simple HLD)**
+---
 
-Below is a simple mermaid diagram showing the main request/processing flow. It is intentionally high-level for learning purposes.
+## How Everything Connects (Simple Flow)
 
 ```mermaid
 flowchart LR
-  Browser[Browser / User]
-  Browser -->|POST /execute/| Django[codepush Django server]
-  Django -->|write file| FS[Local Repo FS: REPO_PATH]
-  Django -->|run g++| Compiler[g++]
-  Compiler -->|binary| FS
-  Django -->|run binary| Runner[Process]
-  Runner -->|stdout/stderr| Django
-  Django -->|JSON output| Browser
+  Browser[Your Browser]
+  Browser -->|Run Code| Server[CodePush Server]
+  Server -->|saves file| Folder[Your Code Folder]
+  Server -->|compiles| GCC[g++]
+  GCC -->|makes a program| Folder
+  Server -->|runs the program| Program[Your Program]
+  Program -->|sends back result| Server
+  Server -->|shows result| Browser
 
-  Browser -->|POST /push/| Django
-  Django -->|git add/commit/push| Git[git CLI -> remote GitHub]
-  Git -->|network| GitHub[GitHub remote]
-  GitHub -->|ack| Django
-  Django -->|JSON| Browser
-
-  style Django fill:#f9f,stroke:#333,stroke-width:2px
+  Browser -->|Push to GitHub| Server
+  Server -->|add, commit, push| Git[Git]
+  Git -->|uploads| GitHub[Your GitHub Repo]
+  GitHub -->|confirms| Server
+  Server -->|shows result| Browser
 ```
 
-Another simplified box diagram (text):
+In short:
+- **Run Code** → saves your file → compiles it → runs it → shows you the result
+- **Push to GitHub** → saves + uploads your code → tells you if it worked
 
-- Browser (CodeMirror UI)
-  -> Django `execute_code` -> write file -> compile -> run -> return output
-  -> Django `push_to_github` -> git add/commit/push -> return git result
+---
 
-**Recommended next steps / improvements**
-- Add server-side checks to prevent committing compiled binaries (look for `*.exe`, `*.out`) before `git add`.
-- Log git stdout/stderr to a secure server-side log file for auditing.
-- Consider implementing a sandbox (e.g., Docker) if you plan to expose this to others.
+## Ideas for Improving This Later
 
-**Appendix: Useful commands**
+- Automatically block compiled files (like `.exe`) from being pushed to GitHub
+- Keep a log file of Git activity for troubleshooting
+- Run code inside a sandbox (like Docker) if you ever plan to let others use this tool
 
-- Start server:
+---
+
+## Quick Reference Commands
+
+Start the server:
 ```bash
 python manage.py runserver
 ```
 
-- Manually push repo (if web push fails):
+Push manually if the website button doesn't work:
 ```bash
 cd "D:/path/to/repo"
 git add .
 git commit -m "Add solutions"
 git push -u origin main
 ```
-
-If you want, I can also add a quick `README` for the `code_editor` app inside `code_editor/` with inline links to `views.py` and the template. Tell me if you want that and whether to include the full `views.py` contents verbatim.
-
----
-Generated by the project helper — concise and focused on `codepush` setup and flow.
