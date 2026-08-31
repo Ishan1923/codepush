@@ -205,3 +205,5 @@ git add .
 git commit -m "Add solutions"
 git push -u origin main
 ```
+
+Also you can just make a short-cut linked to runserver.bat or deploy/codepush.service to directly run the server.
