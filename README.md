@@ -1,3 +1,12 @@
+<div align="center">
+  <img src="banner.png" alt="code_push banner" width="100%">
+  
+  <br/>
+  
+  **A localized Django-based C++ environment that automates GitHub commits.**
+</div>
+
+
 # CodePush — A Local Coding Practice Tool
 
 CodePush is a simple website that runs on your own computer. It lets you write code, test it, and save it to GitHub — all from one page in your browser.
@@ -53,7 +62,7 @@ Then open **http://127.0.0.1:8000/** in your browser.
 
 ---
 
-## How It Works (The Basics)
+## How It Works 
 
 The page has a code editor box where you type your solution. There are two buttons:
 
@@ -76,7 +85,7 @@ The page has a code editor box where you type your solution. There are two butto
 
 ---
 
-## The Server Code (`views.py`) — In Plain Terms
+## The Server Code (`views.py`) 
 
 There are two main functions:
 
@@ -94,7 +103,7 @@ There are two main functions:
 
 ---
 
-## The Webpage (`index.html`) — In Plain Terms
+## The Webpage (`index.html`) 
 
 - The typing box on the page is powered by a code editor tool called CodeMirror.
 - When you click **Run Code**, it bundles up your code and sends it to the server, then shows the result in a box below.
@@ -148,7 +157,7 @@ Set up an SSH key, or use a Personal Access Token if you're pushing over HTTPS.
 
 ---
 
-## How Everything Connects (Simple Flow)
+## How Everything Connects 
 
 ```mermaid
 flowchart LR
